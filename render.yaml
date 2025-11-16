@@ -15,7 +15,7 @@ services:
         value: production
 
   # 2. The React App (Static Site)
-  - type: static
+  - type: web
     name: realtime-editor-client  # You can name this anything
     # This tells Render to build your React app
     buildCommand: "npm run build"
