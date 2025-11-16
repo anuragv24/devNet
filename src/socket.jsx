@@ -7,5 +7,6 @@ export const initSocket = async () => {
        timeout: 10000,
        transports: ['websocket'] 
     }
-    return io(import.meta.env.VITE_BACKKEND_URL, options )
+    const RENDER_SERVER_URL = 'https://realtime-editor-server-ajh2.onrender.com'
+    return io(RENDER_SERVER_URL, options )
 }
