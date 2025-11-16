@@ -199,33 +199,50 @@ const startCall = async (partnerSocketId, isOfferer) => {
   const handleOffer = async ({ offer, fromSocketId }) => {
     console.log(`Received offer from ${fromSocketId}`);
     try {
-        // 1. Get local video (if not already)
-        let stream = localStream;
+        let stream = localStream; // Check if we already have a stream
+
         if (!stream) {
-            stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-            setLocalStream(stream);
+            // If not, try to get one
+            try {
+                stream = await navigator.mediaDevices.getUserMedia({
+                    video: true,
+                    audio: true,
+                });
+            } catch (err) {
+                console.warn('Could not get video on offer. Trying audio-only.');
+                if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
+                    toast.error('Video device not found. Starting audio-only call.');
+                    stream = await navigator.mediaDevices.getUserMedia({
+                        video: false,
+                        audio: true,
+                    });
+                } else {
+                    toast.error('Could not start call. Check media permissions.');
+                    return; // Fail if they denied permissions
+                }
+            }
+            setLocalStream(stream); // Save the new stream
         }
 
-        // 2. Create peer connection
+        // We have a stream, now proceed
         const pc = createPeerConnection(fromSocketId);
 
-        // 3. Set the remote description (the offer)
         await pc.setRemoteDescription(new RTCSessionDescription(offer));
-
-        // 4. Create an answer
         const answer = await pc.createAnswer();
         await pc.setLocalDescription(answer);
 
-        // 5. Send the answer back
         socketRef.current.emit('webrtc:answer', {
             toSocketId: fromSocketId,
             answer: answer,
         });
-        setIsCallActive(true)
+
+        // --- THIS IS THE FIX ---
+        setIsCallActive(true); // Show the video windows for the receiver
+
     } catch (err) {
         console.error('Error handling offer:', err);
     }
-  };
+};
 
   const handleAnswer = async ({ answer }) => {
     console.log('Received answer');
