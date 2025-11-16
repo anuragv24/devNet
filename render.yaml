@@ -1,0 +1,23 @@
+# This is your render.yaml file
+# It tells Render how to deploy your monorepo
+
+services:
+  # 1. The Node.js Server (Web Service)
+  - type: web
+    name: realtime-editor-server  # You can name this anything
+    runtime: node
+    # This tells Render to install all your npm packages
+    buildCommand: "npm install"
+    # This is the 'start' script from your package.json
+    startCommand: "npm run start"
+    envVars:
+      - key: NODE_ENV
+        value: production
+
+  # 2. The React App (Static Site)
+  - type: static
+    name: realtime-editor-client  # You can name this anything
+    # This tells Render to build your React app
+    buildCommand: "npm run build"
+    # This tells Render where your final 'dist' folder is
+    staticPublishPath: ./dist
