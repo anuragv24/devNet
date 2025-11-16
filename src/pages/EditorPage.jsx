@@ -17,10 +17,18 @@ import myLogo from "../assets/devnet.svg"
 const iceServers = {
   iceServers: [
     {
-      urls: [
+      urls: [ // Google's free STUN servers
         "stun:stun.l.google.com:19302",
         "stun:stun1.l.google.com:19302",
       ],
+    },
+    { // Free public TURN server (for demo purposes)
+      urls: [
+        "turn:openrelay.metered.ca:80",
+        "turn:openrelay.metered.ca:443",
+      ],
+      username: "openrelayproject",
+      credential: "openrelayproject",
     },
   ],
 };
@@ -213,6 +221,7 @@ const startCall = async (partnerSocketId, isOfferer) => {
             toSocketId: fromSocketId,
             answer: answer,
         });
+        setIsCallActive(true)
     } catch (err) {
         console.error('Error handling offer:', err);
     }
