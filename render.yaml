@@ -2,6 +2,7 @@ services:
   - type: web
     name: realtime-editor-server
     runtime: node
+    plan: free # <-- ADD THIS LINE
     buildCommand: "npm install"
     startCommand: "npm run start"
     envVars:
@@ -10,5 +11,6 @@ services:
   - type: web
     name: realtime-editor-client
     runtime: static
+    plan: free # <-- ADD THIS LINE
     buildCommand: "npm run build"
     staticPublishPath: ./dist
