@@ -1,4 +1,3 @@
-// This is your new, complete src/Editor.jsx file
 
 import React, { useEffect, useRef } from 'react';
 import { EditorState, Transaction } from '@codemirror/state';
