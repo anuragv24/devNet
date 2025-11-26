@@ -1,110 +1,57 @@
-
-import React, { useEffect, useRef } from 'react';
-import { EditorState, Transaction } from '@codemirror/state';
-import { EditorView, basicSetup } from 'codemirror';
+import React, { useState, useEffect } from 'react';
+import CodeMirror from '@uiw/react-codemirror';
 import { javascript } from '@codemirror/lang-javascript';
 import { dracula } from '@uiw/codemirror-theme-dracula';
 import ACTIONS from '../Actions';
 
-// This annotation is used to mark transactions that originate from the socket
-const remoteAnnotation = Transaction.remote.of(true);
-
 const Editor = ({ socketRef, roomId, onCodeChange }) => {
-    const editorParentRef = useRef(null);
-    const viewRef = useRef(null);
+    const [code, setCode] = useState("// Write your code here...");
 
-    // Effect for initializing the editor
+    // 1. Listen for incoming code changes from Socket
     useEffect(() => {
-        if (!editorParentRef.current) return;
-
-        // --- Debounce helper function ---
-        function debounce(func, delay) {
-            let timeout;
-            return (...args) => {
-                clearTimeout(timeout);
-                timeout = setTimeout(() => func.apply(this, args), delay);
-            };
-        }
-
-        // --- Debounced emit function ---
-        const debouncedEmit = debounce((code) => {
-            if (socketRef.current) {
-                socketRef.current.emit(ACTIONS.CODE_CHANGE, {
-                    roomId,
-                    code,
-                });
-            }
-        }, 300); // 300ms delay
-
-        // The update listener
-        const onUpdate = EditorView.updateListener.of((update) => {
-            if (update.docChanged) {
-                const code = update.state.doc.toString();
-                onCodeChange(code); // Prop callback
-
-                // --- THIS IS THE CRITICAL ANTI-ECHO CHECK ---
-                const isRemote = update.transactions.some((tr) =>
-                    tr.annotation(remoteAnnotation)
-                );
-
-                // If the change was local, emit it (debounced)
-                if (!isRemote) {
-                    debouncedEmit(code);
+        if (socketRef.current) {
+            socketRef.current.on(ACTIONS.CODE_CHANGE, ({ code: newCode }) => {
+                if (newCode !== null) {
+                    setCode(newCode);
+                    // Also update the parent ref so Sync works for new joiners
+                    onCodeChange(newCode); 
                 }
-            }
-        });
-
-        const extensions = [
-            basicSetup,
-            javascript({ json: true }),
-            dracula,
-            onUpdate, // Our custom update listener
-        ];
-
-        const startState = EditorState.create({
-            doc: '// Your collaborative code starts here...\n',
-            extensions: extensions,
-        });
-
-        const view = new EditorView({
-            state: startState,
-            parent: editorParentRef.current,
-        });
-
-        viewRef.current = view;
-
-        return () => {
-            view.destroy();
-            viewRef.current = null;
-        };
-    }, []); // Runs only once
-
-    // Effect for handling incoming socket events
-    useEffect(() => {
-        if (!socketRef.current) {
-            return;
+            });
         }
 
-        const handler = ({ code }) => {
-            const view = viewRef.current;
-            if (view && code !== null && code !== view.state.doc.toString()) {
-                view.dispatch({
-                    changes: { from: 0, to: view.state.doc.length, insert: code },
-                    annotations: [remoteAnnotation], // Mark this as a remote change
-                });
-            }
-        };
-
-        socketRef.current.on(ACTIONS.CODE_CHANGE, handler);
-
         return () => {
-            if (socketRef.current) {
-                socketRef.current.off(ACTIONS.CODE_CHANGE, handler);
-            }
+            if(socketRef.current) socketRef.current.off(ACTIONS.CODE_CHANGE);
         };
-    }, [socketRef.current]);
+    }, [socketRef.current, onCodeChange]);
 
-    return <div ref={editorParentRef} id="realtimeEditor"></div>;
+    // 2. Handle local updates (User typing)
+    const handleChange = (val, viewUpdate) => {
+        setCode(val);
+        onCodeChange(val);
+        
+        // Only emit if the socket is ready
+        // We do NOT emit if the change came from the socket (to avoid loops).
+        // The backend `socket.in(roomId)` ensures we don't get our own events back,
+        // so we can safely emit here whenever the user types.
+        if (socketRef.current) {
+            socketRef.current.emit(ACTIONS.CODE_CHANGE, {
+                roomId,
+                code: val,
+            });
+        }
+    };
+
+    return (
+        <div style={{ fontSize: '16px', lineHeight: '1.6' }}>
+            <CodeMirror
+                value={code}
+                height="100vh"
+                theme={dracula}
+                extensions={[javascript({ jsx: true })]}
+                onChange={handleChange}
+            />
+        </div>
+    );
 };
 
 export default Editor;
