@@ -55,7 +55,7 @@ const EditorPage = () => {
   const reactNavigator = useNavigate();
 
 
-  const createPeerConnection = (partnerSocketId) => {
+  const createPeerConnection = (partnerSocketId, stream) => {
     // If a connection already exists, close it
     if (peerConnectionRef.current) {
         peerConnectionRef.current.close();
@@ -65,10 +65,12 @@ const EditorPage = () => {
 
     // --- Add local video/audio tracks to the connection ---
     // This sends video to the other person
-    if (localStream) {
-        localStream.getTracks().forEach((track) => {
-            pc.addTrack(track, localStream);
+    if (stream) {
+        stream.getTracks().forEach((track) => {
+            pc.addTrack(track, stream);
         });
+    } else {
+      console.warn("No local stream provided to connection")
     }
   // --- Handle incoming ICE candidates ---
     pc.onicecandidate = (event) => {
@@ -127,7 +129,7 @@ const startCall = async (partnerSocketId, isOfferer) => {
     try {
         console.log(`Starting call to ${partnerSocketId}. Is Offerer: ${isOfferer}`);
         
-        let stream; // Define stream variable
+        let stream = null; // Define stream variable
 
         // --- 1. Try to get video + audio ---
         try {
@@ -157,8 +159,7 @@ const startCall = async (partnerSocketId, isOfferer) => {
         setLocalStream(stream); // Set the stream (either video or audio-only)
 
         // --- 3. Create the peer connection ---
-        const pc = createPeerConnection(partnerSocketId);
-
+        const pc = createPeerConnection(partnerSocketId, stream);
         // --- 4. If this user is the "offerer", create and send the offer ---
         if (isOfferer) {
             console.log('Creating offer...');
@@ -225,7 +226,7 @@ const startCall = async (partnerSocketId, isOfferer) => {
         }
 
         // We have a stream, now proceed
-        const pc = createPeerConnection(fromSocketId);
+        const pc = createPeerConnection(fromSocketId, stream);
 
         await pc.setRemoteDescription(new RTCSessionDescription(offer));
         const answer = await pc.createAnswer();
@@ -256,7 +257,11 @@ const startCall = async (partnerSocketId, isOfferer) => {
   const handleIceCandidate = async ({ candidate }) => {
     console.log('Received ICE candidate');
     if (peerConnectionRef.current && candidate) {
-        await peerConnectionRef.current.addIceCandidate(new RTCIceCandidate(candidate));
+    try {
+          await peerConnectionRef.current.addIceCandidate(new RTCIceCandidate(candidate));
+      } catch (error) {
+          console.error("Error adding ICE candidate", err)
+      }    
     }
   };
 
